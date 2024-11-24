@@ -1,6 +1,8 @@
 from datetime import datetime
 from faker import Faker
 import random
+import psycopg2
+import pandas as pd
 
 
 class Transaction:
@@ -63,3 +65,38 @@ class Transaction:
             ))
 
         print(f"Fake transactions generated successfully for customer {customer_id}.")
+
+    def calculate_monthly_savings(self):
+
+        connection = psycopg2.connect(**self.db_config)
+        cursor = connection.cursor()
+        
+        query = """
+        SELECT transaction_date, unrounded_difference
+        FROM transaction
+        WHERE customer_id = %s
+        ORDER BY transaction_date
+        """
+        cursor.execute(query, (self.customer_id,))
+        transactions = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        data = []
+        for transaction_date, unrounded_difference in transactions:
+            transaction_date = pd.to_datetime(transaction_date)
+            data.append([transaction_date, unrounded_difference])
+
+        df = pd.DataFrame(data, columns=['transaction_date', 'unrounded_difference'])
+        
+        # Set the transaction date as the index to group by month
+        df.set_index('transaction_date', inplace=True)
+        
+        # Group by month and calculate the total savings for each month
+        monthly_savings = df['unrounded_difference'].resample('M').sum()
+        
+        # Print or return the results
+        print("Monthly Savings (Total for Each Month):")
+        for date, savings in monthly_savings.items():
+            print(f"{date.strftime('%Y-%m')}: {savings:.2f}")
