@@ -3,8 +3,7 @@ from Utils.config import get_database_config
 from Modules.User_regisration import UserRegistration
 from Data.create_tables import create_tables
 from Modules.portfolio import Portfolio
-from Modules.API import get_sp500_value
-
+from Modules.Transaction import Transaction
 
 def main():
     # Step 1: Get database configuration
@@ -18,29 +17,43 @@ def main():
     create_tables(db)
 
     # Step 4: Create an instance of UserRegistration
-    User_registration = UserRegistration(db_config)
-
-    # Step 5: Register a customer or fetch existing customer
-    customer_data = User_registration.register_customer(db)
+    user_registration = UserRegistration(db_config)
+    
+    customer_data = user_registration.register_customer(db)
 
     if customer_data:
         print("Customer processed successfully:")
         print(customer_data)
-        
-        # Step 6: Prompt to view portfolio
-        view_portfolio = input("Would you like to view your portfolio? (yes/no): ").strip().lower()
 
-        if view_portfolio == "yes":
-            customer_id = customer_data['customer_id']  # Fetch the customer_id from the registered data
-            portfolio = Portfolio(customer_id, db_config)
+        while True:
+            print("\nPlease select an option:")
+            print("1. Register a new user")
+            print("2. View monthly savings")
+            print("3. Exit")
+            
+            choice = input("Enter your choice (1/2/3): ").strip()
+            
+            if choice == '1':
+                customer_data = user_registration.register_customer(db)
+                if customer_data:
+                    print("Customer processed successfully:")
+                    print(customer_data)
+            elif choice == '2':
+                customer_id = customer_data['customer_id']
+                transactions = Transaction(customer_id)
+                monthly_savings = transactions.calculate_monthly_savings()
+                print("\nMonthly Savings (Total for Each Month):")
+                for entry in monthly_savings:
+                    print(f"{entry['month']}: {entry['savings']:.2f}")
+            elif choice == '3':
+                print("Exiting... Goodbye!")
+                break
+            else:
+                print("Invalid choice. Please try again.") 
+    else:
+        print('You are not a customer')
 
-            # Display the current portfolio
-            portfolio.display_portfolio()  # Ensure display_portfolio method is implemented in Portfolio
-
-        else:
-            print("You chose not to view the portfolio.")
-
-    # Step 7: Close the database connection
+    # Step 6: Close the database connection
     db.close()
 
 if __name__ == "__main__":
