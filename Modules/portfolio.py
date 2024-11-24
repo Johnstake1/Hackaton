@@ -129,3 +129,43 @@ class Portfolio:
             if connection:
                 cursor.close()
                 connection.close()
+
+    def get_portfolio_data(self):
+        """
+        Fetch the portfolio data from the database for a specific customer.
+        """
+        query = """
+        SELECT portfolio_id, ticker, stock_purchase_amount, stock_value, portfolio_value, 
+               percentage_change, cumulative_savings 
+        FROM Portfolio
+        WHERE customer_id = %s
+        ORDER BY portfolio_id DESC
+        """
+        connection = psycopg2.connect(**self.db_config)
+        cursor = connection.cursor()
+        cursor.execute(query, (self.customer_id,))
+        portfolio_data = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return portfolio_data
+
+    def display_portfolio(self):
+        """
+        Display the portfolio data to the user.
+        """
+        portfolio_data = self.get_portfolio_data()
+
+        if portfolio_data:
+            print(f"Portfolio for Customer ID: {self.customer_id}")
+            for record in portfolio_data:
+                portfolio_id, ticker, stock_purchase_amount, stock_value, portfolio_value, percentage_change, cumulative_savings = record
+                print(f"\nPortfolio ID: {portfolio_id}")
+                print(f"Ticker: {ticker}")
+                print(f"Stock Purchase Amount: {stock_purchase_amount:.2f}")
+                print(f"Stock Value: {stock_value:.2f}")
+                print(f"Portfolio Value: {portfolio_value:.2f}")
+                print(f"Percentage Change: {percentage_change:.2f}%")
+                print(f"Cumulative Savings: {cumulative_savings:.2f}")
+        else:
+            print("No portfolio data found for this customer.")
+    
