@@ -65,9 +65,9 @@ def populate_fake_data(num_customers=10, num_transactions=50):
         connection = psycopg2.connect(
             dbname="Centsible Invest",
             user="postgres",
-            password="6760",
+            password="1234",
             host="localhost",
-            port="5432"
+            port="5433"
         )
         cursor = connection.cursor()
 
