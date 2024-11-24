@@ -1,12 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
+import psycopg2
 
 class Portfolio:
-    def __init__(self, customer_id):
+    def __init__(self, customer_id, db_config):
         self.customer_id = customer_id
         self.savings = 0.0  # Total savings from rounded differences
         self.transactions = []  # List to store transactions related to the customer
         self.investments = defaultdict(float)  # Tracks stocks and investment amounts
+        self.db_config = db_config  # Database configuration
+        self.invested_this_month = False  # Track if savings have already been invested this month
 
     def add_transaction(self, transaction_id, transaction_date, unrounded_difference):
         """
@@ -22,33 +25,107 @@ class Portfolio:
 
     def invest_savings(self):
         """
-        Simulates investing savings into a single stock at the end of the month.
+        Simulates investing savings into the S&P 500 ETF (SPY) at the end of the month (last day).
+        Inserts the investment record into the Portfolio table in the database.
         """
-        # Get the current month and year
+        # Ensure that savings have not already been invested this month
+        if self.invested_this_month:
+            print("Savings have already been invested this month. No further investments can be made.")
+            return
+
+        # Get the current date and determine if today is the last day of the month
         now = datetime.now()
         current_month = now.month
         current_year = now.year
+        next_month = current_month + 1 if current_month < 12 else 1
+        next_month_year = current_year if current_month < 12 else current_year + 1
+        
+        # Find the first day of the next month
+        first_day_next_month = datetime(next_month_year, next_month, 1)
+        
+        # Last day of the current month is one day before the first day of the next month
+        last_day_of_current_month = first_day_next_month - timedelta(days=1)
+        
+        # Check if today is the last day of the month
+        if now.date() != last_day_of_current_month.date():
+            print(f"Today is not the last day of the month. Investment will be made on {last_day_of_current_month.date()}.")
+            return
 
-        # Filter transactions from the current month
-        monthly_transactions = [
-            txn for txn in self.transactions
-            if txn["transaction_date"].month == current_month and txn["transaction_date"].year == current_year
-        ]
-
-        # If there are savings, "invest" in a stock
+        # If there are savings, "invest" in the S&P 500 ETF (SPY)
         if self.savings > 0:
-            # For simplicity, select a random stock (could connect to an API for real stock data)
-            stock = self.select_stock()
-            self.investments[stock] += self.savings
-            print(f"Invested {self.savings:.2f} into {stock}.")
+            stock = self.select_stock()  # Always invest in the S&P 500 ETF
+            stock_purchase_amount = self.savings
+            stock_value = self.get_stock_value(stock)
+            portfolio_value = stock_purchase_amount * stock_value
+            percentage_change = self.calculate_percentage_change()
+            cumulative_savings = self.calculate_cumulative_savings()
+
+            # Insert the investment into the portfolio table
+            self.insert_into_portfolio(stock, stock_purchase_amount, stock_value, portfolio_value, percentage_change, cumulative_savings)
+
+            # Mark savings as invested
+            self.invested_this_month = True
             self.savings = 0.0  # Reset savings after investment
+            print(f"Invested {stock_purchase_amount:.2f} into {stock}.")
         else:
             print("No savings to invest this month.")
 
     def select_stock(self):
         """
-        Select a stock to invest in (can be random or logic-based).
+        Select the S&P 500 stock (SPY) for investment.
         """
-        stock_list = ["AAPL", "MSFT", "GOOG", "AMZN", "TSLA"]  # Example stock options
-        selected_stock = random.choice(stock_list)  # Randomly select a stock
-        return selected_stock
+        return "SPY"  # Always invest in the S&P 500 ETF (SPY)
+
+    def get_stock_value(self, ticker):
+        """
+        Fetch the current stock value from an API like Google Finance or any stock price API.
+        For simplicity, we'll return a static value for SPY.
+        """
+        if ticker == "SPY":
+            # Example: static value for SPY, in a real scenario, you can fetch this from an API
+            return 450.00  # Placeholder value, replace with actual API call
+
+    def calculate_percentage_change(self):
+        """
+        Calculate the percentage change in portfolio value month-over-month.
+        """
+        # Placeholder: assuming no previous value for simplicity
+        # In practice, you would calculate based on previous month's value
+        previous_value = 0  # Assuming previous value is 0 for first time calculation
+        percentage_change = ((self.savings - previous_value) / previous_value) * 100 if previous_value else 0
+        return percentage_change
+
+    def calculate_cumulative_savings(self):
+        """
+        Calculate cumulative savings for the month (sum of rounded transaction differences).
+        """
+        return sum(txn["unrounded_difference"] for txn in self.transactions)
+
+    def insert_into_portfolio(self, ticker, stock_purchase_amount, stock_value, portfolio_value, percentage_change, cumulative_savings):
+        """
+        Insert the portfolio record into the database.
+        """
+        try:
+            connection = psycopg2.connect(**self.db_config)
+            cursor = connection.cursor()
+
+            insert_query = """
+            INSERT INTO Portfolio (
+                customer_id, ticker, stock_purchase_amount, stock_value, portfolio_value,
+                percentage_change, cumulative_savings
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
+            data = (
+                self.customer_id, ticker, stock_purchase_amount, stock_value, portfolio_value,
+                percentage_change, cumulative_savings
+            )
+
+            cursor.execute(insert_query, data)
+            connection.commit()
+            print(f"Portfolio updated for customer {self.customer_id}. Investment details added.")
+        except Exception as e:
+            print(f"Error inserting into Portfolio table: {e}")
+        finally:
+            if connection:
+                cursor.close()
+                connection.close()
