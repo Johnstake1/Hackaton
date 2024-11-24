@@ -2,7 +2,9 @@ from Modules.db_connection import DatabaseConnection
 from Utils.config import get_database_config
 from Modules.User_regisration import UserRegistration
 from Data.create_tables import create_tables
-from Modules.Portfolio import Portfolio
+from Modules.portfolio import Portfolio
+from Modules.API import get_sp500_value
+
 
 def main():
     # Step 1: Get database configuration
@@ -16,10 +18,10 @@ def main():
     create_tables(db)
 
     # Step 4: Create an instance of UserRegistration
-    user_registration = UserRegistration(db_config)
+    User_registration = UserRegistration(db_config)
 
     # Step 5: Register a customer or fetch existing customer
-    customer_data = user_registration.register_customer(db)
+    customer_data = User_registration.register_customer(db)
 
     if customer_data:
         print("Customer processed successfully:")
