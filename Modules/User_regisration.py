@@ -1,6 +1,6 @@
 import psycopg2
 from datetime import datetime
-
+#test
 class UserRegistration:
     def __init__(self, db_config): #Connecting to the database using the db_config so that registration_customer can open and add the new information to the DB.
         self.db_config = db_config
